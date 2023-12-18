@@ -1,25 +1,33 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const app = express();
-const PORT = 3000;
+const bodyParser = require('body-parser');
 
-mongoose.connect('mongodb://localhost:27017', { useNewUrlParser: true, useUnifiedTopology: true });
+const app = express();
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/patientdb';
+
+mongoose.connect(MONGODB_URI, { useUnifiedTopology: true, useNewUrlParser: true });
 
 const patientSchema = new mongoose.Schema({
-  id: { type: Number, required: true },
+  id: { type: Number, required: true, unique: true },
   name: { type: String, required: true },
 });
 
 const Patient = mongoose.model('Patient', patientSchema);
 
-app.use(express.json());
+app.use(bodyParser.json());
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 app.get('/patients', async (req, res) => {
   try {
     const patients = await Patient.find();
     res.json(patients);
   } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    next(error);
   }
 });
 
@@ -35,7 +43,7 @@ app.get('/patients/:id', async (req, res) => {
       res.status(404).json({ error: 'Patient not found' });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    next(error);
   }
 });
 
@@ -46,7 +54,7 @@ app.post('/patients', async (req, res) => {
     const newPatient = await Patient.create({ id, name });
     res.status(201).json(newPatient);
   } catch (error) {
-    res.status(400).json({ error: 'Invalid input. Please provide both id and name for the patient' });
+    next(error);
   }
 });
 
